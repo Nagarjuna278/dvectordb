@@ -9,12 +9,14 @@ package raft_pb; // A package name for your protobuf definitions
 service NodeRegistration {
   rpc RegisterNode (NodeInfo) returns (RegisterResponse);
   rpc GetNodes(Empty) returns (NodeList);
-  rpc SendHeartBeat(Signal) returns (Signal);
+  rpc SendHeartBeat(HearBeatRequest) returns (HearBeatReply);
   rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply);
+  rpc RemoveConnection(NodeInfo) returns (RegisterResponse);
+  rpc checkRPC(Empty) returns (RegisterResponse);
 }
 
 message NodeInfo {
-  string id = 1;
+  int32 id = 1;
   string addr = 2;
 }
 
@@ -29,15 +31,39 @@ message NodeList {
 message Empty{}
 
 message Signal {
-  bool flag = 1;
+  int32 Term = 1;
+  bool flag = 2;
+  int32 ind = 3;
 }
 
 message RequestVoteArgs {
-  string candidate_id = 1;
-  int32 candidate_term = 2;
-  string Addr = 3;
+  string Id = 1;
+  int32 Term = 2;
+  string Addr = 5;
 }
 
 message RequestVoteReply {
   bool vote_granted = 1;
+  int32 term=2;
+  string votedFor=3;
+}
+
+
+message HearBeatRequest {
+  string Id=1;
+  int32 Term=2;
+  int32 LogInd=3;
+  string Add=4;
+}
+
+
+message HearBeatReply {
+  bool Flag = 1;
+  bool NewLeader = 2;
+  int32 Term = 3;
+}
+
+message AppendEntriesArgs {
+  string message = 1;
+  int32 LogInd = 2;
 }

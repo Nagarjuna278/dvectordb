@@ -41,21 +41,21 @@ func main() {
 		}
 	}()
 
+	// List of known peers (including itself)
 	peers := []string{
-		"localhost:5001",
-		"localhost:5002",
-		"localhost:5003",
+		"localhost:5101",
+		"localhost:5102",
+		"localhost:5103",
 	}
 
-	node1 := raft.NewNode(1, "localhost:5001")
-	node2 := raft.NewNode(2, "localhost:5002")
-	node3 := raft.NewNode(3, "localhost:5003")
+	node1 := raft.NewNode("1", "localhost:5101")
+	node2 := raft.NewNode("2", "localhost:5102")
+	node3 := raft.NewNode("3", "localhost:5103")
 
-	go node1.Run(peers)
 	go node2.Run(peers)
 	go node3.Run(peers)
+	go node1.Run(peers)
 
 	app.Start(":3000")
-
 	select {}
 }
