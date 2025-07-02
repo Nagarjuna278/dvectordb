@@ -13,6 +13,7 @@ service NodeRegistration {
   rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply);
   rpc RemoveConnection(NodeInfo) returns (RegisterResponse);
   rpc checkRPC(Empty) returns (RegisterResponse);
+  rpc AppendEntries(AppendEntriesArgs) returns (AppendEntriesReply);
 }
 
 message NodeInfo {
@@ -36,9 +37,34 @@ message Signal {
   int32 ind = 3;
 }
 
+
+// Arguments:
+// term candidate’s term
+// candidateId candidate requesting vote
+// lastLogIndex index of candidate’s last log entry (§5.4)
+// lastLogTerm term of candidate’s last log entry (§5.4)
+
+// Results:
+// term currentTerm, for candidate to update itself
+// voteGranted true means candidate received vote
+// Receiver implementation:
+// 1. Reply false if term < currentTerm (§5.1)
+// 2. If votedFor is null or candidateId, and candidate’s log is at
+// least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
+
+message Log {
+  int32 Term=1;
+  int32 Ind=2;
+  string command=3;
+  string key=4;
+  string value=5;
+}
+
 message RequestVoteArgs {
   string Id = 1;
   int32 Term = 2;
+  int32 LastLogInd =3;
+  int32 LastLogTerm = 4;
   string Addr = 5;
 }
 
@@ -63,7 +89,37 @@ message HearBeatReply {
   int32 Term = 3;
 }
 
-message AppendEntriesArgs {
-  string message = 1;
-  int32 LogInd = 2;
+// Arguments:
+// term leader’s term
+// leaderId so follower can redirect clients
+// prevLogIndex index of log entry immediately preceding
+// new ones
+// prevLogTerm term of prevLogIndex entry
+// entries[] log entries to store (empty for heartbeat;
+// may send more than one for efficiency)
+// leaderCommit leader’s commitIndex
+
+// Results:
+// term currentTerm, for leader to update itself
+// success true if follower contained entry matching
+// prevLogIndex and prevLogTerm
+
+message AppendEntriesArgs{
+  int32 Term = 1;
+  string Id = 2;
+  int32 prevLogIndex =3;
+  int32 prevLogTerm = 4;
+  repeated Log log =5;
+  int32 CommitInd =6;
+}
+
+message AppendEntriesReply {
+  int32 Term = 1;
+  bool success = 2;
+  int32 prevLogInd = 3;
+  int32 prevLogTerm = 4;
+}
+
+message LogList {
+  repeated Log log=1;
 }

@@ -18,7 +18,7 @@ func NewNode(id string, addr string) *RaftServer {
 		Addr:          addr,
 		Term:          0,
 		logInd:        0,
-		log:           []Log{},
+		log:           make([]*Log, 0),
 		lasLogTerm:    0,
 		VotedFor:      "",
 		state:         Follower,

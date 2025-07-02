@@ -1,5 +1,5 @@
 package raft
 
-func (rs *RaftServer) AppendEntries() {
+func (rs *RaftServer) AppendEntry() {
 
 }

@@ -42,16 +42,60 @@ type RaftServer struct {
 	Addr   string
 	Term   int
 	logInd int
-	log    []Log
+	log    []*Log
 
-	lasLogTerm    int
-	VotedFor      string
-	leaderId      string
-	state         State
+	lasLogTerm int
+	VotedFor   string
+	leaderId   string
+	state      State
+
+	commitIndex int // Index of highest log entry known to be committed
+	lastApplied int
+
+	nextIndex  map[int]int // For each follower, index of the next log entry to send
+	matchIndex map[int]int // For each follower, index of the highest log entry replicated
+
 	elecTimeoutCh chan struct{}
 	heartbeatCh   chan struct{}
+	applyCh       chan ApplyCmd
 	ctx           context.Context
 	grpcSrv       *grpc.Server
 	cancel        context.CancelFunc
 	Peers         map[string]*PeerClient
+}
+
+type ApplyCmd struct {
+	CmdValid bool
+	Cmd      string
+	Key      string
+	Value    string
+	CmdInd   int
+	CmdTerm  int
+}
+
+func (l *Log) convertToProto() *pb.Log {
+	return &pb.Log{
+		Ind:     int32(l.Index),
+		Term:    int32(l.Term),
+		Command: l.message,
+		Key:     "",
+		Value:   "",
+	}
+}
+
+type Loglist struct {
+	log []*Log
+}
+
+func (l *Loglist) convertLogSliceToProto() []*pb.Log {
+	loglist := make([]*pb.Log, 0)
+	for _, value := range l.log {
+		loglist = append(loglist, &pb.Log{Ind: int32(value.Index),
+			Term:    int32(value.Term),
+			Command: value.message,
+			Key:     "",
+			Value:   "",
+		})
+	}
+	return loglist
 }

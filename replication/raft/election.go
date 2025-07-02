@@ -56,19 +56,32 @@ func (rs *RaftServer) RunCandidate() {
 			go func(peer *PeerClient) {
 				defer wg.Done()
 				rs.mu.Lock()
-				req := &pb.RequestVoteArgs{Id: rs.Id, Term: int32(rs.Term), Addr: rs.Addr}
+				lastLogInd := 0
+				lastLogTerm := 0
+				if len(rs.log) > 0 {
+					lastLogInd = rs.log[len(rs.log)-1].Index
+					lastLogTerm = rs.log[len(rs.log)-1].Term
+				}
+				req := &pb.RequestVoteArgs{Id: rs.Id, Term: int32(rs.Term), Addr: rs.Addr, LastLogInd: int32(lastLogInd), LastLogTerm: int32(lastLogTerm)}
 				rs.mu.Unlock()
 				resp, err := peer.raftNode.RequestVote(context.Background(), req)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				// 			message RequestVoteReply {
-				// bool vote_granted = 1;
-				// int32 term=2;
-				// string votedFor=3;
-				// }
-				// fmt.Println(resp.VoteGranted, resp.Term, resp.VotedFor, req.Id, peer.Addr)
+				// Arguments:
+				// term candidate’s term
+				// candidateId candidate requesting vote
+				// lastLogIndex index of candidate’s last log entry (§5.4)
+				// lastLogTerm term of candidate’s last log entry (§5.4)
+
+				// Results:
+				// term currentTerm, for candidate to update itself
+				// voteGranted true means candidate received vote
+				// Receiver implementation:
+				// 1. Reply false if term < currentTerm (§5.1)
+				// 2. If votedFor is null or candidateId, and candidate’s log is at
+				// least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
 
 				if resp.Term > req.Term {
 					rs.heartbeatCh <- struct{}{}
@@ -119,7 +132,12 @@ func (rs *RaftServer) RunCandidate() {
 func (rs *RaftServer) RunLeader() {
 	newTimer := time.NewTimer(4 * time.Second)
 	shouldStepDown := make(chan bool, 1)
-
+	rs.mu.Lock()
+	n := len(rs.Peers)
+	commitChan := make(chan bool, n)
+	applyCommit := make(chan struct{}, 1)
+	commitCount := 1
+	rs.mu.Unlock()
 	heartbeat := func() {
 		var wg sync.WaitGroup
 
@@ -188,6 +206,56 @@ func (rs *RaftServer) RunLeader() {
 			rs.mu.Lock()
 			rs.state = Follower
 			fmt.Println("breaking Leader")
+			rs.mu.Unlock()
+		case applyMsg := <-rs.applyCh:
+			ticker.Reset(heartbeatInterval)
+			rs.mu.Lock()
+			peers := rs.Peers
+			for _, peer := range peers {
+				go func(peer *PeerClient) {
+					prevLogInd := 0
+					prevLogTerm := 0
+					if len(rs.log) > 0 {
+						prevLogInd = len(rs.log) - 1
+						prevLogTerm = rs.log[prevLogInd].Term
+					}
+					req := &pb.AppendEntriesArgs{Term: int32(rs.Term), Id: rs.Id, PrevLogIndex: int32(prevLogInd), PrevLogTerm: int32(prevLogTerm)}
+					resp, err := peer.raftNode.AppendEntries(context.Background(), req)
+					if err != nil {
+						fmt.Println(err)
+					}
+					if resp.Success {
+						commitChan <- true
+					} else {
+						newlog := make([]*Log, 0)
+						newlog = rs.log[prevLogInd:]
+						newlog = append(newlog, &Log{Index: (prevLogInd + 1), Term: (rs.Term), message: applyMsg.Cmd})
+						ll := &Loglist{log: newlog}
+						newpbList := ll.convertLogSliceToProto()
+						req.Log = newpbList
+						resp, err := peer.raftNode.AppendEntries(context.Background(), req)
+						if err != nil {
+							fmt.Println(err)
+						}
+						if resp.Success {
+							commitChan <- true
+						} else {
+							commitChan <- false
+						}
+					}
+				}(peer)
+			}
+		case leaderCommitResponse := <-commitChan:
+			fmt.Println(leaderCommitResponse)
+			if leaderCommitResponse == true {
+				commitCount++
+				if commitCount > n/2 {
+					applyCommit <- struct{}{}
+				}
+			}
+		case <-applyCommit:
+			rs.mu.Lock()
+			rs.commitIndex = rs.logInd
 			rs.mu.Unlock()
 		case <-rs.ctx.Done():
 			rs.DeRegister()

@@ -42,3 +42,7 @@ func GetAllData(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, data)
 }
+
+func PushKVData(c echo.Context) error {
+	return nil
+}
