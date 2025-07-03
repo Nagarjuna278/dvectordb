@@ -48,9 +48,9 @@ func main() {
 		"localhost:5103",
 	}
 
-	node1 := raft.NewNode("1", "localhost:5101")
-	node2 := raft.NewNode("2", "localhost:5102")
-	node3 := raft.NewNode("3", "localhost:5103")
+	node1 := raft.NewNode(1, "localhost:5101")
+	node2 := raft.NewNode(2, "localhost:5102")
+	node3 := raft.NewNode(3, "localhost:5103")
 
 	go node2.Run(peers)
 	go node3.Run(peers)

@@ -62,7 +62,7 @@ func (rs *RaftServer) RunCandidate() {
 					lastLogInd = rs.log[len(rs.log)-1].Index
 					lastLogTerm = rs.log[len(rs.log)-1].Term
 				}
-				req := &pb.RequestVoteArgs{Id: rs.Id, Term: int32(rs.Term), Addr: rs.Addr, LastLogInd: int32(lastLogInd), LastLogTerm: int32(lastLogTerm)}
+				req := &pb.RequestVoteArgs{Id: int32(rs.Id), Term: int32(rs.Term), Addr: rs.Addr, LastLogInd: int32(lastLogInd), LastLogTerm: int32(lastLogTerm)}
 				rs.mu.Unlock()
 				resp, err := peer.raftNode.RequestVote(context.Background(), req)
 				if err != nil {
@@ -119,6 +119,11 @@ func (rs *RaftServer) RunCandidate() {
 			case <-leaderch:
 				rs.mu.Lock()
 				rs.state = Leader
+				lastlogInd := len(rs.log) - 1
+				for i, _ := range rs.Peers {
+					rs.nextIndex[i] = lastlogInd
+					rs.matchIndex[i] = 0
+				}
 				rs.mu.Unlock()
 				return
 			case <-timer.C:
@@ -130,133 +135,68 @@ func (rs *RaftServer) RunCandidate() {
 }
 
 func (rs *RaftServer) RunLeader() {
-	newTimer := time.NewTimer(4 * time.Second)
-	shouldStepDown := make(chan bool, 1)
-	rs.mu.Lock()
-	n := len(rs.Peers)
-	commitChan := make(chan bool, n)
-	applyCommit := make(chan struct{}, 1)
-	commitCount := 1
-	rs.mu.Unlock()
-	heartbeat := func() {
-		var wg sync.WaitGroup
-
-		for _, peer := range rs.Peers {
-			wg.Add(1)
-			go func(p *PeerClient) {
-				defer wg.Done()
-				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-				defer cancel()
-				rs.mu.Lock()
-				defer rs.mu.Unlock()
-
-				req := &pb.HearBeatRequest{
-					Id:     rs.Id,
-					Term:   int32(rs.Term),
-					LogInd: int32(rs.logInd),
-					Add:    rs.Addr,
-				}
-				resp, err := p.raftNode.SendHeartBeat(ctx, req)
-				if err != nil {
-					return
-				}
-				if resp.Flag == true {
-					return
-				}
-				if resp.Term > req.Term || resp.NewLeader == true {
-					rs.state = Follower
-					rs.Term = int(resp.Term)
-					shouldStepDown <- true
-				}
-			}(peer)
-		}
-
-		wg.Wait()
-	}
 	ticker := time.NewTicker(heartbeatInterval)
-	defer ticker.Stop()
-	rs.mu.Lock()
-	isLeader := (rs.state == Leader)
-	if isLeader {
-		fmt.Println("current leader", rs.Addr)
-
-	}
-	rs.mu.Unlock()
-
-	if !isLeader {
-		return // Step down if state changed
-	}
-	heartbeat()
-
-	for {
-		select {
-		case <-ticker.C:
-			rs.mu.Lock()
-			isLeader := (rs.state == Leader)
-			// fmt.Println(rs.Addr, isLeader)
-			rs.mu.Unlock()
-
-			if !isLeader {
-				return // Step down if state changed
-			}
-			heartbeat()
-		case <-shouldStepDown:
-			return
-		case <-newTimer.C:
-			rs.mu.Lock()
-			rs.state = Follower
-			fmt.Println("breaking Leader")
-			rs.mu.Unlock()
-		case applyMsg := <-rs.applyCh:
-			ticker.Reset(heartbeatInterval)
-			rs.mu.Lock()
-			peers := rs.Peers
-			for _, peer := range peers {
-				go func(peer *PeerClient) {
-					prevLogInd := 0
-					prevLogTerm := 0
-					if len(rs.log) > 0 {
-						prevLogInd = len(rs.log) - 1
-						prevLogTerm = rs.log[prevLogInd].Term
+	commitChan := make(chan int, 1)
+	n := len(rs.Peers)
+	voteresp := make(chan bool, n)
+	applyMsg := make(chan ApplyCmd, 1)
+	votes := 1
+	heartbeat := func() {
+		for addr, peer := range rs.Peers {
+			go func(addr string, peer *PeerClient) {
+				req := &pb.AppendEntriesArgs{
+					// 				Term          int32                  `protobuf:"varint,1,opt,name=Term,proto3" json:"Term,omitempty"`
+					// Id            string                 `protobuf:"bytes,2,opt,name=Id,proto3" json:"Id,omitempty"`
+					// PrevLogIndex  int32                  `protobuf:"varint,3,opt,name=prevLogIndex,proto3" json:"prevLogIndex,omitempty"`
+					// PrevLogTerm   int32                  `protobuf:"varint,4,opt,name=prevLogTerm,proto3" json:"prevLogTerm,omitempty"`
+					// Log           []*Log                 `protobuf:"bytes,5,rep,name=log,proto3
+					Term:         int32(rs.Term),
+					Id:           int32(rs.Id),
+					PrevLogIndex: 0,
+					PrevLogTerm:  0,
+				}
+				retry := 0
+				for retry < 3 {
+					if rs.nextIndex[addr] >= 0 {
+						req.PrevLogIndex = int32(rs.nextIndex[addr] - 1)
+						req.PrevLogTerm = int32(rs.log[rs.nextIndex[addr]].Term)
 					}
-					req := &pb.AppendEntriesArgs{Term: int32(rs.Term), Id: rs.Id, PrevLogIndex: int32(prevLogInd), PrevLogTerm: int32(prevLogTerm)}
-					resp, err := peer.raftNode.AppendEntries(context.Background(), req)
+					reqLog := rs.log[rs.nextIndex[addr]:]
+					pblog := (&Loglist{log: reqLog}).convertLogSliceToProto()
+					req.Log = pblog
+					resp, err := rs.AppendEntries(context.Background(), req)
 					if err != nil {
 						fmt.Println(err)
 					}
 					if resp.Success {
-						commitChan <- true
+						voteresp <- true
+						break
 					} else {
-						newlog := make([]*Log, 0)
-						newlog = rs.log[prevLogInd:]
-						newlog = append(newlog, &Log{Index: (prevLogInd + 1), Term: (rs.Term), message: applyMsg.Cmd})
-						ll := &Loglist{log: newlog}
-						newpbList := ll.convertLogSliceToProto()
-						req.Log = newpbList
-						resp, err := peer.raftNode.AppendEntries(context.Background(), req)
-						if err != nil {
-							fmt.Println(err)
-						}
-						if resp.Success {
-							commitChan <- true
-						} else {
-							commitChan <- false
-						}
+						rs.nextIndex[addr] = int(resp.PrevLogInd)
+						retry++
 					}
-				}(peer)
-			}
-		case leaderCommitResponse := <-commitChan:
-			fmt.Println(leaderCommitResponse)
-			if leaderCommitResponse == true {
-				commitCount++
-				if commitCount > n/2 {
-					applyCommit <- struct{}{}
+				}
+
+			}(addr, peer)
+		}
+	}
+	for {
+		select {
+		case msg := <-applyMsg:
+			rs.log = append(rs.log, &Log{message: msg.Cmd, Term: rs.Term, Index: len(rs.log)})
+			heartbeat()
+		case vote := <-voteresp:
+			if vote {
+				votes++
+				if votes > n/2 {
+					commitChan <- rs.log[len(rs.log)-1].Index
 				}
 			}
-		case <-applyCommit:
-			rs.mu.Lock()
-			rs.commitIndex = rs.logInd
-			rs.mu.Unlock()
+		case logInd := <-commitChan:
+			rs.commitIndex = logInd
+		case <-ticker.C:
+			heartbeat()
+			// pass
 		case <-rs.ctx.Done():
 			rs.DeRegister()
 			return

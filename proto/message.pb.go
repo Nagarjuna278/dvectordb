@@ -337,7 +337,7 @@ func (x *Log) GetValue() string {
 
 type RequestVoteArgs struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	Id            int32                  `protobuf:"varint,1,opt,name=Id,proto3" json:"Id,omitempty"`
 	Term          int32                  `protobuf:"varint,2,opt,name=Term,proto3" json:"Term,omitempty"`
 	LastLogInd    int32                  `protobuf:"varint,3,opt,name=LastLogInd,proto3" json:"LastLogInd,omitempty"`
 	LastLogTerm   int32                  `protobuf:"varint,4,opt,name=LastLogTerm,proto3" json:"LastLogTerm,omitempty"`
@@ -376,11 +376,11 @@ func (*RequestVoteArgs) Descriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *RequestVoteArgs) GetId() string {
+func (x *RequestVoteArgs) GetId() int32 {
 	if x != nil {
 		return x.Id
 	}
-	return ""
+	return 0
 }
 
 func (x *RequestVoteArgs) GetTerm() int32 {
@@ -473,7 +473,7 @@ func (x *RequestVoteReply) GetVotedFor() string {
 
 type HearBeatRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	Id            int32                  `protobuf:"varint,1,opt,name=Id,proto3" json:"Id,omitempty"`
 	Term          int32                  `protobuf:"varint,2,opt,name=Term,proto3" json:"Term,omitempty"`
 	LogInd        int32                  `protobuf:"varint,3,opt,name=LogInd,proto3" json:"LogInd,omitempty"`
 	Add           string                 `protobuf:"bytes,4,opt,name=Add,proto3" json:"Add,omitempty"`
@@ -511,11 +511,11 @@ func (*HearBeatRequest) Descriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *HearBeatRequest) GetId() string {
+func (x *HearBeatRequest) GetId() int32 {
 	if x != nil {
 		return x.Id
 	}
-	return ""
+	return 0
 }
 
 func (x *HearBeatRequest) GetTerm() int32 {
@@ -602,7 +602,7 @@ func (x *HearBeatReply) GetTerm() int32 {
 type AppendEntriesArgs struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Term          int32                  `protobuf:"varint,1,opt,name=Term,proto3" json:"Term,omitempty"`
-	Id            string                 `protobuf:"bytes,2,opt,name=Id,proto3" json:"Id,omitempty"`
+	Id            int32                  `protobuf:"varint,2,opt,name=Id,proto3" json:"Id,omitempty"`
 	PrevLogIndex  int32                  `protobuf:"varint,3,opt,name=prevLogIndex,proto3" json:"prevLogIndex,omitempty"`
 	PrevLogTerm   int32                  `protobuf:"varint,4,opt,name=prevLogTerm,proto3" json:"prevLogTerm,omitempty"`
 	Log           []*Log                 `protobuf:"bytes,5,rep,name=log,proto3" json:"log,omitempty"`
@@ -648,11 +648,11 @@ func (x *AppendEntriesArgs) GetTerm() int32 {
 	return 0
 }
 
-func (x *AppendEntriesArgs) GetId() string {
+func (x *AppendEntriesArgs) GetId() int32 {
 	if x != nil {
 		return x.Id
 	}
-	return ""
+	return 0
 }
 
 func (x *AppendEntriesArgs) GetPrevLogIndex() int32 {
@@ -819,7 +819,7 @@ const file_message_proto_rawDesc = "" +
 	"\x03key\x18\x04 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x05 \x01(\tR\x05value\"\x8b\x01\n" +
 	"\x0fRequestVoteArgs\x12\x0e\n" +
-	"\x02Id\x18\x01 \x01(\tR\x02Id\x12\x12\n" +
+	"\x02Id\x18\x01 \x01(\x05R\x02Id\x12\x12\n" +
 	"\x04Term\x18\x02 \x01(\x05R\x04Term\x12\x1e\n" +
 	"\n" +
 	"LastLogInd\x18\x03 \x01(\x05R\n" +
@@ -831,7 +831,7 @@ const file_message_proto_rawDesc = "" +
 	"\x04term\x18\x02 \x01(\x05R\x04term\x12\x1a\n" +
 	"\bvotedFor\x18\x03 \x01(\tR\bvotedFor\"_\n" +
 	"\x0fHearBeatRequest\x12\x0e\n" +
-	"\x02Id\x18\x01 \x01(\tR\x02Id\x12\x12\n" +
+	"\x02Id\x18\x01 \x01(\x05R\x02Id\x12\x12\n" +
 	"\x04Term\x18\x02 \x01(\x05R\x04Term\x12\x16\n" +
 	"\x06LogInd\x18\x03 \x01(\x05R\x06LogInd\x12\x10\n" +
 	"\x03Add\x18\x04 \x01(\tR\x03Add\"U\n" +
@@ -841,7 +841,7 @@ const file_message_proto_rawDesc = "" +
 	"\x04Term\x18\x03 \x01(\x05R\x04Term\"\xbb\x01\n" +
 	"\x11AppendEntriesArgs\x12\x12\n" +
 	"\x04Term\x18\x01 \x01(\x05R\x04Term\x12\x0e\n" +
-	"\x02Id\x18\x02 \x01(\tR\x02Id\x12\"\n" +
+	"\x02Id\x18\x02 \x01(\x05R\x02Id\x12\"\n" +
 	"\fprevLogIndex\x18\x03 \x01(\x05R\fprevLogIndex\x12 \n" +
 	"\vprevLogTerm\x18\x04 \x01(\x05R\vprevLogTerm\x12\x1e\n" +
 	"\x03log\x18\x05 \x03(\v2\f.raft_pb.LogR\x03log\x12\x1c\n" +

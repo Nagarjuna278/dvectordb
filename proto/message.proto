@@ -61,7 +61,7 @@ message Log {
 }
 
 message RequestVoteArgs {
-  string Id = 1;
+  int32 Id = 1;
   int32 Term = 2;
   int32 LastLogInd =3;
   int32 LastLogTerm = 4;
@@ -76,7 +76,7 @@ message RequestVoteReply {
 
 
 message HearBeatRequest {
-  string Id=1;
+  int32 Id=1;
   int32 Term=2;
   int32 LogInd=3;
   string Add=4;
@@ -106,7 +106,7 @@ message HearBeatReply {
 
 message AppendEntriesArgs{
   int32 Term = 1;
-  string Id = 2;
+  int32 Id = 2;
   int32 prevLogIndex =3;
   int32 prevLogTerm = 4;
   repeated Log log =5;

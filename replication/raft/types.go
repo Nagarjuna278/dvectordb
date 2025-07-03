@@ -38,7 +38,7 @@ type PeerClient struct {
 type RaftServer struct {
 	pb.UnimplementedNodeRegistrationServer
 	mu     sync.Mutex
-	Id     string
+	Id     int
 	Addr   string
 	Term   int
 	logInd int
@@ -46,14 +46,14 @@ type RaftServer struct {
 
 	lasLogTerm int
 	VotedFor   string
-	leaderId   string
+	leaderId   int
 	state      State
 
 	commitIndex int // Index of highest log entry known to be committed
 	lastApplied int
 
-	nextIndex  map[int]int // For each follower, index of the next log entry to send
-	matchIndex map[int]int // For each follower, index of the highest log entry replicated
+	nextIndex  map[string]int // For each follower, index of the next log entry to send
+	matchIndex map[string]int // For each follower, index of the highest log entry replicated
 
 	elecTimeoutCh chan struct{}
 	heartbeatCh   chan struct{}

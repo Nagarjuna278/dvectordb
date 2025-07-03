@@ -30,7 +30,7 @@ func (rs *RaftServer) RequestVote(ctx context.Context, req *pb.RequestVoteArgs) 
 			return resp, nil
 		} else if resp.Term == req.Term && (resp.VotedFor != "" || resp.VotedFor == req.Addr) {
 			resp.VoteGranted = true
-			resp.VotedFor = req.Id
+			resp.VotedFor = req.Addr
 		} else if resp.Term < req.Term {
 			resp.VoteGranted = true
 			resp.Term = req.Term
@@ -46,7 +46,7 @@ func (rs *RaftServer) SendHeartBeat(ctx context.Context, req *pb.HearBeatRequest
 
 	if rs.state == Candidate && rs.Term == int(req.Term) {
 		rs.state = Follower
-		rs.leaderId = req.Id
+		rs.leaderId = int(req.Id)
 		return &pb.HearBeatReply{Flag: true, NewLeader: false, Term: int32(rs.Term)}, nil
 	}
 

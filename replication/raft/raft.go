@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func NewNode(id string, addr string) *RaftServer {
+func NewNode(id int, addr string) *RaftServer {
 	node := &RaftServer{
 		Id:            id,
 		Addr:          addr,
@@ -25,6 +25,8 @@ func NewNode(id string, addr string) *RaftServer {
 		elecTimeoutCh: make(chan struct{}),
 		heartbeatCh:   make(chan struct{}),
 		Peers:         make(map[string]*PeerClient),
+		nextIndex:     make(map[string]int, 0),
+		matchIndex:    make(map[string]int, 0),
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	node.ctx = ctx
